@@ -1,12 +1,9 @@
-# -*- coding: utf-8 -*-
-# Comparación: spaCy sí analiza oraciones en NL y decide adjuntos, etc.
-
 import spacy
 from spacy import displacy
 from pathlib import Path
 
 SENTS = [
-    "The dog sleeps.",
+    "Thedogsleeps.",
     "The dog sees a man with a telescope.",
     "The man sleeps with a telescope.",
     "Hello world.",
@@ -28,16 +25,10 @@ def analyze(sentence: str, idx: int, nlp):
 
     print("\nPREPOSITIONS (attachment):")
     for t in doc:
-        if t.pos_ == "ADP":  # preposición, p.ej. 'with'
+        if t.pos_ == "ADP":
             head = t.head
             kind = "VERB" if head.pos_ == "VERB" else ("NOUN" if head.pos_ in ("NOUN", "PROPN") else head.pos_)
             print(f" - '{t.text} ...' attaches to '{head.text}' [{kind}]")
-
-    # Guarda el árbol de dependencias como HTML para el informe
-    html = displacy.render(doc, style="dep", options={"compact": True}, page=True)
-    out = Path(f"dep_tree_{idx + 1}.html")
-    out.write_text(html, encoding="utf-8")
-    print(f"\n[OK] Árbol guardado en: {out.resolve()}")
 
 
 def main():

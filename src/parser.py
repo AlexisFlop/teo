@@ -14,7 +14,6 @@ class Parser:
         self.lexer = Lexer(text)
         self.current: Token = self.lexer.next_token()
 
-    # ---------- utils ----------
     def _eat(self, expected_type: str) -> Token:
         if self.current.type == expected_type:
             tok = self.current
@@ -31,70 +30,63 @@ class Parser:
     def _lookahead_is(self, ttype: str) -> bool:
         return self.current.type == ttype
 
-    # ---------- Program ----------
-    # Program -> (Func | Decl | Stmt)* EOF
     def parse(self) -> ProgramNode:
         items: List[TopLevel] = []
         while self.current.type != TT_EOF:
             if self._lookahead_is(TT_INT) or self._lookahead_is(TT_FLOAT):
-                # Podría ser Decl o Func (mirar dos tokens: Type id ...)
-                # Guardamos y miramos si viene '(' => Func
+
                 save = self.current
-                rettype = self._type_spec()  # consume type
+                retype = self._type_spec()  # consume type
                 if self._lookahead_is(TT_ID):
                     name_tok = self._eat(TT_ID)
                     if self._lookahead_is(TT_LPAREN):
-                        # Func → Type id '(' Params? ')' Block
+
                         self._eat(TT_LPAREN)
                         params = self._params_opt()
                         self._eat(TT_RPAREN)
                         body = self._block()
-                        items.append(FuncDecl(rettype, name_tok.lexeme, params, body))
+                        items.append(FuncDecl(retype, name_tok.lexeme, params, body))
                     else:
-                        # Era Decl → Type id ';'
+
                         self._eat(TT_SEMI)
-                        items.append(DeclNode(rettype, name_tok.lexeme))
+                        items.append(DeclNode(retype, name_tok.lexeme))
                 else:
                     self._error_expected("id")
             else:
                 items.append(self._stmt_like())
         return ProgramNode(items)
 
-    # ---------- Decl / Block ----------
-    # Block → '{' (Decl | Stmt | PrintStmt | ReturnStmt)* '}'
     def _block(self) -> Block:
         self._eat(TT_LBRACE)
         items: List = []
         while not self._lookahead_is(TT_RBRACE):
             if self._lookahead_is(TT_INT) or self._lookahead_is(TT_FLOAT):
-                vartype = self._type_spec()
+                vary = self._type_spec()
                 name = self._eat(TT_ID).lexeme
                 self._eat(TT_SEMI)
-                items.append(DeclNode(vartype, name))
+                items.append(DeclNode(vary, name))
             elif self._lookahead_is(TT_PRINT):
                 items.append(self._print_stmt())
             elif self._lookahead_is(TT_RETURN):
                 items.append(self._return_stmt())
             else:
-                items.append(self._stmt())  # asignación o expr;
+                items.append(self._stmt())
         self._eat(TT_RBRACE)
         return Block(items)
 
-    # Params → Type id (',' Type id)*
     def _params_opt(self) -> List[Param]:
         params: List[Param] = []
         if self._lookahead_is(TT_INT) or self._lookahead_is(TT_FLOAT):
-            vartype = self._type_spec()
+            vary = self._type_spec()
             name = self._eat(TT_ID).lexeme
-            params.append(Param(vartype, name))
+            params.append(Param(vary, name))
             while self._lookahead_is(TT_COMMA):
                 self._eat(TT_COMMA)
-                vartype = self._type_spec()
+                vary = self._type_spec()
                 name = self._eat(TT_ID).lexeme
-                params.append(Param(vartype, name))
+                params.append(Param(vary, name))
         return params
 
-    # Type → 'int' | 'float'
     def _type_spec(self) -> str:
         if self._lookahead_is(TT_INT):
             self._eat(TT_INT)
@@ -104,8 +96,6 @@ class Parser:
             return "float"
         self._error_expected("int|float")
 
-    # ---------- Statements ----------
-    # StmtLike (top-level sin tipos): Print | Return | Stmt
     def _stmt_like(self) -> TopLevel:
         if self._lookahead_is(TT_PRINT):
             return self._print_stmt()
@@ -115,10 +105,9 @@ class Parser:
 
     # Stmt → id '=' Expr ';' | Expr ';'
     def _stmt(self) -> Union[AssignNode, ExprNode]:
-        # puede empezar por ID (asignación o llamada) o '(' o NUM o PRINT ya manejado
+
         if self._lookahead_is(TT_ID):
-            # mirar si viene '=' o '('
-            # guardamos nombre
+
             name_tok = self._eat(TT_ID)
             if self._lookahead_is(TT_ASSIGN):
                 self._eat(TT_ASSIGN)
@@ -126,19 +115,16 @@ class Parser:
                 self._eat(TT_SEMI)
                 return AssignNode(name_tok.lexeme, expr)
             elif self._lookahead_is(TT_LPAREN):
-                # llamada como statement: id '(' args? ')' ';'
                 args = self._call_args()
                 self._eat(TT_SEMI)
                 return CallNode(name_tok.lexeme, args)
             else:
                 self._error_expected("'=' o '('")
         else:
-            # Expr ';' (por ejemplo (1+2); es raro, pero lo soportamos)
             expr = self._expr()
             self._eat(TT_SEMI)
             return expr
 
-    # PrintStmt → 'print' '(' Expr ')' ';'
     def _print_stmt(self) -> PrintStmt:
         self._eat(TT_PRINT)
         self._eat(TT_LPAREN)
@@ -147,7 +133,6 @@ class Parser:
         self._eat(TT_SEMI)
         return PrintStmt(expr)
 
-    # ReturnStmt → 'return' Expr? ';'
     def _return_stmt(self) -> ReturnStmt:
         self._eat(TT_RETURN)
         expr: Optional[ExprNode] = None
@@ -156,8 +141,6 @@ class Parser:
         self._eat(TT_SEMI)
         return ReturnStmt(expr)
 
-    # ---------- Expresiones ----------
-    # Expr → Term (('+'|'-') Term)*
     def _expr(self) -> ExprNode:
         node = self._term()
         while self._lookahead_is(TT_PLUS) or self._lookahead_is(TT_MINUS):
@@ -167,7 +150,6 @@ class Parser:
             node = BinOpNode(op, node, right)
         return node
 
-    # Term → Factor (('*'|'/') Factor)*
     def _term(self) -> ExprNode:
         node = self._factor()
         while self._lookahead_is(TT_STAR) or self._lookahead_is(TT_SLASH):
@@ -177,7 +159,6 @@ class Parser:
             node = BinOpNode(op, node, right)
         return node
 
-    # Factor → id | num | '(' Expr ')' | id '(' Args? ')'
     def _factor(self) -> ExprNode:
         if self._lookahead_is(TT_ID):
             name = self._eat(TT_ID).lexeme
@@ -194,7 +175,6 @@ class Parser:
             return node
         self._error_expected("id|num|'('")
 
-    # Args → '(' Expr (',' Expr)* ')'
     def _call_args(self) -> List[ExprNode]:
         self._eat(TT_LPAREN)
         args: List[ExprNode] = []
@@ -207,9 +187,6 @@ class Parser:
         return args
 
 
-# ---------------------- Mini intérprete ----------------------
-# Tipado súper simple (int/float), variables locales por función, funciones globales.
-
 class ReturnSignal(Exception):
     def __init__(self, value): self.value = value
 
@@ -218,7 +195,6 @@ class Interpreter:
     def __init__(self, program: ProgramNode):
         self.program = program
         self.functions: dict[str, FuncDecl] = {}
-        # tabla global (solo valores numéricos)
         self.globals: dict[str, float] = {}
 
         for it in program.items:
@@ -227,7 +203,6 @@ class Interpreter:
             elif isinstance(it, DeclNode):
                 self.globals[it.name] = 0.0
             elif isinstance(it, AssignNode):
-                # ejecutar asignaciones top-level
                 self.globals[it.name] = self._eval_expr(it.expr, self.globals)
 
     def call(self, name: str, args_vals: List[float]) -> float:
@@ -236,16 +211,13 @@ class Interpreter:
         f = self.functions[name]
         if len(args_vals) != len(f.params):
             raise RuntimeError(f"Aridad incorrecta para {name}")
-        # entorno local
         env = {p.name: v for p, v in zip(f.params, args_vals)}
-        # declaraciones en body
         try:
             self._exec_block(f.body, env)
         except ReturnSignal as r:
             return float(r.value if r.value is not None else 0.0)
         return 0.0
 
-    # Ejecuta bloque
     def _exec_block(self, block: Block, env: dict[str, float]) -> None:
         for it in block.items:
             if isinstance(it, DeclNode):
@@ -261,11 +233,9 @@ class Interpreter:
                 val = self._eval_expr(it.expr, env) if it.expr is not None else 0.0
                 raise ReturnSignal(val)
             else:
-                # expresión solitaria (CallNode, etc.)
                 if isinstance(it, ExprNode):
                     self._eval_expr(it, env)
 
-    # Resolver si variable es local o global
     def _resolve_scope(self, name: str, env: dict[str, float]) -> str:
         if name in env:
             return name
@@ -273,7 +243,6 @@ class Interpreter:
             return name
         raise RuntimeError(f"Variable no declarada: {name}")
 
-    # Evaluar expresión
     def _eval_expr(self, node: ExprNode, env: dict[str, float]) -> float:
         if isinstance(node, NumNode):
             return float(node.value)
@@ -294,7 +263,6 @@ class Interpreter:
         if isinstance(node, CallNode):
             args_vals = [self._eval_expr(a, env) for a in node.args]
             return self.call(node.func, args_vals)
-        # también permitimos que una Expr aparezca como Stmt
         return 0.0
 
 
@@ -329,14 +297,14 @@ def _demo():
     try:
         parser = Parser(DEMO_SOURCE)
         ast = parser.parse()
-        print("✓ AST generado:\n")
+        print("AST generado:\n")
         print_ast(ast)
         print("\n---- EJECUCIÓN ----")
         vm = Interpreter(ast)
         # llamar main “a mano”
         vm.call("main", [0])
     except (SyntaxError, RuntimeError) as e:
-        print("❌ Error:", e)
+        print("Error:", e)
 
 
 if __name__ == "__main__":

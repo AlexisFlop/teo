@@ -1,20 +1,15 @@
-# -*- coding: utf-8 -*-
-# Nodos del AST para el subconjunto extendido: declaraciones, funciones, llamadas y print
-
 from dataclasses import dataclass
 from typing import List, Union, Optional
 
 
-# ---- Programa ----
 @dataclass
 class ProgramNode:
-    items: List["TopLevel"]  # FuncDecl | DeclNode | AssignNode
+    items: List["TopLevel"]
 
 
 TopLevel = Union["FuncDecl", "DeclNode", "AssignNode"]
 
 
-# ---- Declaraciones / Sentencias ----
 @dataclass
 class DeclNode:
     vartype: str  # 'int' | 'float'
@@ -37,7 +32,6 @@ class ReturnStmt:
     expr: Optional["ExprNode"]  # puede ser None
 
 
-# ---- Funciones ----
 @dataclass
 class Param:
     vartype: str
@@ -57,7 +51,6 @@ class FuncDecl:
     body: Block
 
 
-# ---- Expresiones ----
 class ExprNode: ...
 
 
@@ -84,7 +77,6 @@ class CallNode(ExprNode):
     args: List["ExprNode"]
 
 
-# ---- Utilidad: pretty print del AST ----
 def print_ast(node, indent: int = 0) -> None:
     pad = "  " * indent
     if isinstance(node, ProgramNode):
