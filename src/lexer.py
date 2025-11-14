@@ -1,3 +1,10 @@
+
+#Flamenco Samour, Diego Andres, 00221020
+#Flores Lopez, Henry Alexis, 00079520
+#Paz Escobar, Christian Alejandro, 00132720
+#Martinez Rivas, Daniel Alejandro, 00085920
+#Guevara Rodriguez, Luis David, 00093217
+
 import ply.lex as lex
 
 PROGRAM = 0
