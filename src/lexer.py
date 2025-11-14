@@ -1,81 +1,220 @@
-from dataclasses import dataclass
-import re
+import ply.lex as lex
 
-TT_INT = "INT_KW"
-TT_FLOAT = "FLOAT_KW"
-TT_RETURN = "RETURN_KW"
-TT_PRINT = "PRINT_KW"
+PROGRAM = 0
+DECLARATION = 1
+TYPE = 2
+VAR_LIST = 3
+MORE_VARS = 4
+STATEMENT = 5
+ASSIGNMENT = 6
+EXPRESSION = 7
+TERM = 8
+FACTOR = 9
 
-TT_ID = "ID"
-TT_NUM = "NUM"
+tokens = (
+    'NUMBER',
+    'FLOAT_NUMBER',
+    'STRING',
+    'PLUS',
+    'MINUS',
+    'TIMES',
+    'DIVIDE',
+    'LPAREN',
+    'RPAREN',
+    'SEMICOLON',
+    'COMMA',
+    'ASSIGN',
+    'CHAR',
+    'FLOAT_TYPE',
+    'CHAR_TYPE',
+    'STRING_TYPE',
+    'IDENTIFIER',
+    'EOF'
+)
 
-TT_PLUS = "PLUS"
-TT_MINUS = "MINUS"
-TT_STAR = "STAR"
-TT_SLASH = "SLASH"
-TT_ASSIGN = "ASSIGN"
+t_PLUS = r'\+'
+t_MINUS = r'-'
+t_TIMES = r'\*'
+t_DIVIDE = r'/'
+t_LPAREN = r'\('
+t_RPAREN = r'\)'
+t_SEMICOLON = r';'
+t_COMMA = r','
+t_ASSIGN = r'='
 
-TT_SEMI = "SEMI"
-TT_COMMA = "COMMA"
-TT_LPAREN = "LPAREN"
-TT_RPAREN = "RPAREN"
-TT_LBRACE = "LBRACE"
-TT_RBRACE = "RBRACE"
 
-TT_EOF = "EOF"
+def t_FLOAT_TYPE(t):
+    r'float'
+    return t
 
-TOKEN_REGEX = [
-    (r"[ \t\r\n]+", None),  # espacios
-    (r"\bint\b", TT_INT),
-    (r"\bfloat\b", TT_FLOAT),
-    (r"\breturn\b", TT_RETURN),
-    (r"\bprint\b", TT_PRINT),
 
-    (r"[a-zA-Z_][a-zA-Z0-9_]*", TT_ID),
-    (r"\d+(?:\.\d+)?", TT_NUM),
+def t_CHAR_TYPE(t):
+    r'char'
+    return t
 
-    (r"\+", TT_PLUS),
-    (r"-", TT_MINUS),
-    (r"\*", TT_STAR),
-    (r"/", TT_SLASH),
-    (r"=", TT_ASSIGN),
 
-    (r";", TT_SEMI),
-    (r",", TT_COMMA),
-    (r"\(", TT_LPAREN),
-    (r"\)", TT_RPAREN),
-    (r"\{", TT_LBRACE),
-    (r"\}", TT_RBRACE),
+def t_STRING_TYPE(t):
+    r'string'
+    return t
+
+
+def t_FLOAT_NUMBER(t):
+    r'\d+\.\d+'
+    t.value = float(t.value)
+    return t
+
+
+def t_NUMBER(t):
+    r'\d+'
+    t.value = int(t.value)
+    return t
+
+
+def t_CHAR(t):
+    r"'[^']'"
+    return t
+
+
+def t_STRING(t):
+    r'\"[^\"]*\"'
+    return t
+
+
+def t_IDENTIFIER(t):
+    r'[a-zA-Z_][a-zA-Z0-9_]*'
+    return t
+
+
+t_ignore = ' \t'
+
+
+def t_error(t):
+    print(f"Caracter no valido: {t.value[0]}")
+    t.lexer.skip(1)
+
+
+tabla = [
+    [PROGRAM, 'FLOAT_TYPE', [DECLARATION, STATEMENT, 'EOF']],
+    [PROGRAM, 'CHAR_TYPE', [DECLARATION, STATEMENT, 'EOF']],
+    [PROGRAM, 'STRING_TYPE', [DECLARATION, STATEMENT, 'EOF']],
+    [PROGRAM, 'IDENTIFIER', [DECLARATION, STATEMENT, 'EOF']],
+    [PROGRAM, 'EOF', ['EOF']],
+
+    [DECLARATION, 'FLOAT_TYPE', [TYPE, VAR_LIST, 'SEMICOLON']],
+    [DECLARATION, 'CHAR_TYPE', [TYPE, VAR_LIST, 'SEMICOLON']],
+    [DECLARATION, 'STRING_TYPE', [TYPE, VAR_LIST, 'SEMICOLON']],
+    [DECLARATION, 'IDENTIFIER', []],
+    [DECLARATION, 'EOF', []],
+
+    [TYPE, 'FLOAT_TYPE', ['FLOAT_TYPE']],
+    [TYPE, 'CHAR_TYPE', ['CHAR_TYPE']],
+    [TYPE, 'STRING_TYPE', ['STRING_TYPE']],
+
+    [VAR_LIST, 'IDENTIFIER', ['IDENTIFIER', MORE_VARS]],
+
+    [MORE_VARS, 'COMMA', ['COMMA', 'IDENTIFIER', MORE_VARS]],
+    [MORE_VARS, 'SEMICOLON', []],
+
+    [STATEMENT, 'IDENTIFIER', [ASSIGNMENT, 'SEMICOLON', STATEMENT]],
+    [STATEMENT, 'EOF', []],
+
+    [ASSIGNMENT, 'IDENTIFIER', ['IDENTIFIER', 'ASSIGN', EXPRESSION]],
+
+    [EXPRESSION, 'STRING', [TERM, EXPRESSION]],
+    [EXPRESSION, 'IDENTIFIER', [TERM, EXPRESSION]],
+    [EXPRESSION, 'NUMBER', [TERM, EXPRESSION]],
+    [EXPRESSION, 'FLOAT_NUMBER', [TERM, EXPRESSION]],
+    [EXPRESSION, 'LPAREN', [TERM, EXPRESSION]],
+    [EXPRESSION, 'PLUS', ['PLUS', TERM, EXPRESSION]],
+    [EXPRESSION, 'MINUS', ['MINUS', TERM, EXPRESSION]],
+    [EXPRESSION, 'SEMICOLON', []],
+    [EXPRESSION, 'RPAREN', []],
+
+    [TERM, 'STRING', [FACTOR, TERM]],
+    [TERM, 'IDENTIFIER', [FACTOR, TERM]],
+    [TERM, 'NUMBER', [FACTOR, TERM]],
+    [TERM, 'FLOAT_NUMBER', [FACTOR, TERM]],
+    [TERM, 'LPAREN', [FACTOR, TERM]],
+    [TERM, 'TIMES', ['TIMES', FACTOR, TERM]],
+    [TERM, 'DIVIDE', ['DIVIDE', FACTOR, TERM]],
+    [TERM, 'PLUS', []],
+    [TERM, 'MINUS', []],
+    [TERM, 'SEMICOLON', []],
+    [TERM, 'RPAREN', []],
+
+
+    [FACTOR, 'STRING', ['STRING']],
+    [FACTOR, 'IDENTIFIER', ['IDENTIFIER']],
+    [FACTOR, 'NUMBER', ['NUMBER']],
+    [FACTOR, 'FLOAT_NUMBER', ['FLOAT_NUMBER']],
+    [FACTOR, 'LPAREN', ['LPAREN', EXPRESSION, 'RPAREN']],
 ]
 
+lexer = lex.lex()
 
-@dataclass
-class Token:
-    type: str
-    lexeme: str
-    pos: int
+stack = ['EOF', PROGRAM]
 
 
-class Lexer:
-    def __init__(self, text: str):
-        self.text = text
-        self.pos = 0
-        self.patterns = [(re.compile(pat, re.DOTALL), typ) for pat, typ in TOKEN_REGEX]
+def searchProduction(no_terminal, terminal):
+    return next((fila[2] for fila in tabla if fila[0] == no_terminal and fila[1] == terminal), None)
 
-    def next_token(self) -> Token:
-        if self.pos >= len(self.text):
-            return Token(TT_EOF, "", self.pos)
 
-        for regex, typ in self.patterns:
-            m = regex.match(self.text, self.pos)
-            if m:
-                lex = m.group(0)
-                start = self.pos
-                self.pos = m.end()
-                if typ is None:
-                    # ignorar espacios
-                    return self.next_token()
-                return Token(typ, lex, start)
+def stackProduction(produccion):
+    list(map(lambda elem: stack.append(elem) if elem != '' else None, reversed(produccion)))
 
-        snippet = self.text[self.pos:self.pos + 20].replace("\n", "\\n")
-        raise SyntaxError(f"Caracter inesperado en posición {self.pos}: '{snippet}'")
+
+def codeAnalyzer(expression):
+    lexer.input(expression)
+    tok = lexer.token() or type('Token', (), {'type': 'EOF', 'value': '$'})()
+
+    x = stack[-1]
+
+    print(f"Analizando: {expression}")
+
+    while True:
+        print(f"Pila: {stack}, Token: {tok.type}='{tok.value}'")
+
+        if x == 'EOF' and tok.type == 'EOF':
+            print("Analisis completado")
+            return True
+
+        if x in tokens and x == tok.type:
+            stack.pop()
+            print(f"Token reconocido: {x}")
+            tok = lexer.token() or type('Token', (), {'type': 'EOF', 'value': '$'})()
+            x = stack[-1] if stack else 'EOF'
+
+        elif x in tokens:
+            print(f"Error: se esperaba {x} pero se encontro {tok.type}")
+            return False
+
+        else:
+            produccion = searchProduction(x, tok.type)
+            if produccion is None:
+                print(f"Error")
+                return False
+
+            stack.pop()
+            if produccion:
+                stackProduction(produccion)
+            x = stack[-1] if stack else 'EOF'
+
+
+examples = [
+    "float x;",
+    "float a, b; a = a*b;",
+    "string flamenco ; flamenco = \"Flamenco\";",
+    #Pruebas NLP
+    "henry alexis flores",
+    "El perro de Juan es oscuro",
+    "Una vaca vestida de uniforme",
+    "Vamos a pasar TEO(?"
+]
+
+print("=== PARSER LL(1) ===")
+for i, codigo in enumerate(examples, 1):
+    print(f"\n--- Ejemplo {i} ---")
+    stack = ['EOF', PROGRAM]
+    lexer.lineno = 1
+    resultado = codeAnalyzer(codigo)
+    print(f"Resultado: {'OK' if resultado else 'ERROR'}")
